@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Peta Sebaran Stasiun Hujan Kota Bandung</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <style>
+        #map {
+            height: 500px;
+            width: 100%;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+        }
+        
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+        }
+        
+        .info {
+            background-color: white;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 10px;
+        }
+
+        /* SEARCH BOX */
+        #searchBox {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 1000;
+            padding: 6px;
+            width: 220px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+        }
+
+        /* LEGENDA */
+        .legend {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: white;
+            padding: 12px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            z-index: 1000;
+            font-size: 12px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            margin-right: 10px;
+        }
+
+        .red { background-color: #e74c3c; }
+        .orange { background-color: #e67e22; }
+        .green { background-color: #27ae60; }
+    </style>
+</head>
+
+<body>
+
+<h1>|Peta Sebaran Stasiun Hujan & Curah Hujan Bandung|</h1>
+
+<div class="info">
+    Klik marker untuk melihat data curah hujan.
+</div>
+
+<input type="text" id="searchBox" placeholder="Cari stasiun hujan...">
+
+<div id="map"></div>
+
+<!-- LEGENDA -->
+<div class="legend">
+    <h4>Legenda Curah Hujan</h4>
+    <div class="legend-item"><div class="legend-color red"></div> Tinggi (>2500)</div>
+    <div class="legend-item"><div class="legend-color orange"></div> Sedang (2100-2500)</div>
+    <div class="legend-item"><div class="legend-color green"></div> Rendah (<2100)</div>
+</div>
+
+<script>
+    // INISIALISASI MAP
+    var map = L.map('map').setView([-6.9175, 107.6191], 13);
+
+    // =========================
+    // BASEMAP (MODIFIKASI-4)
+    // =========================
+    var osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap'
+    });
+
+    var satellite = L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
+        attribution: 'Google Satellite'
+    });
+
+    var terrain = L.tileLayer('https://mt1.google.com/vt/lyrs=p&x={x}&y={y}&z={z}', {
+        attribution: 'Google Terrain'
+    });
+
+    osm.addTo(map);
+
+    L.control.layers({
+        "OpenStreetMap": osm,
+        "Google Satellite": satellite,
+        "Google Terrain": terrain
+    }).addTo(map);
+
+    // SCALE
+    L.control.scale({ metric:true }).addTo(map);
+
+    // PINDAH ZOOM
+    map.zoomControl.setPosition('bottomleft');
+
+    // =========================
+    // DATA STASIUN
+    // =========================
+    var stasiunHujan = [
+        {name:"🌊 Stasiun Hujan Gedebage", lat:-6.9439, lng:107.7082, elevation:675, rainfall:2150},
+        {name:"🌊 Stasiun Hujan Dayeuhkolot", lat:-6.9794, lng:107.6183, elevation:660, rainfall:2080},
+        {name:"🌊 Stasiun Hujan Lembang", lat:-6.8126, lng:107.6156, elevation:1250, rainfall:2800},
+        {name:"🌊 Stasiun Hujan Cimahi", lat:-6.8722, lng:107.5423, elevation:740, rainfall:2200},
+        {name:"🌊 Stasiun Hujan Ujungberung", lat:-6.9050, lng:107.6850, elevation:685, rainfall:2100}
+    ];
+
+    function getMarkerColor(rainfall) {
+        if (rainfall > 2500) return '#e74c3c';
+        if (rainfall >= 2100) return '#e67e22';
+        return '#27ae60';
+    }
+
+    var markersList = [];
+
+    stasiunHujan.forEach(function(stasiun) {
+        var markerColor = getMarkerColor(stasiun.rainfall);
+
+        var marker = L.marker([stasiun.lat, stasiun.lng]).addTo(map);
+
+        var popupContent = `
+            <h3 style="color:${markerColor}">${stasiun.name}</h3>
+            Ketinggian: ${stasiun.elevation} mdpl<br>
+            Curah Hujan: ${stasiun.rainfall} mm/thn
+        `;
+
+        marker.bindPopup(popupContent);
+        marker.bindTooltip(stasiun.name);
+
+        markersList.push({
+            marker: marker,
+            name: stasiun.name.toLowerCase(),
+            lat: stasiun.lat,
+            lng: stasiun.lng
+        });
+    });
+
+    // =========================
+    // SEARCH (MODIFIKASI-5)
+    // =========================
+    document.getElementById("searchBox").addEventListener("keypress", function(e){
+        if(e.key === "Enter"){
+            var keyword = this.value.toLowerCase();
+            var found = false;
+
+            markersList.forEach(function(item){
+                if(item.name.includes(keyword)){
+                    map.setView([item.lat, item.lng], 15);
+                    item.marker.openPopup();
+                    found = true;
+                }
+            });
+
+            if(!found){
+                alert("Stasiun hujan tidak ditemukan");
+            }
+        }
+    });
+
+</script>
+
+</body>
+</html>
